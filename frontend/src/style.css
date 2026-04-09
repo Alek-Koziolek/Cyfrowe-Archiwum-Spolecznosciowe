@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+.theme-light {
+  --color-bg: #f5efe6;
+  --color-surface: #ede0d0;
+  --color-on-bg: #2c1a0e;
+  --color-on-surface: #4a3120;
+  --color-primary: #865a38;
+  --color-primary-hover: #6d4a2e;
+  --color-on-primary: #fff8f0;
+  --color-secondary: #9c7a5b;
+  --color-border: #d4b896;
+  --color-muted: #7d5c40;
+  --color-error: #b91c1c;
+  --color-on-error: #ffffff;
+  --color-success: #166534;
+  --color-on-success: #ffffff;
+  --color-focus-ring: #865a38;
+}
+
+.theme-dark {
+  --color-bg: #1c1208;
+  --color-surface: #2e1f10;
+  --color-on-bg: #f0e0cc;
+  --color-on-surface: #d9c3a8;
+  --color-primary: #c8916a;
+  --color-primary-hover: #dba882;
+  --color-on-primary: #1c1208;
+  --color-secondary: #a07850;
+  --color-border: #4a3220;
+  --color-muted: #b08050;
+  --color-error: #f87171;
+  --color-on-error: #ffffff;
+  --color-success: #4ade80;
+  --color-on-success: #000000;
+  --color-focus-ring: #c8916a;
+}
+
+
+.theme-high-contrast {
+  --color-bg: #000000;
+  --color-surface: #1a1a1a;
+  --color-on-bg: #ffffff;
+  --color-on-surface: #ffffff;
+  --color-primary: #ffff00;
+  --color-primary-hover: #ffdd00;
+  --color-on-primary: #000000;
+  --color-secondary: #00ffff;
+  --color-border: #ffffff;
+  --color-muted: #cccccc;
+  --color-error: #ff4444;
+  --color-on-error: #000000;
+  --color-success: #44ff44;
+  --color-on-success: #000000;
+  --color-focus-ring: #ffff00;
+}
+
+html {
+  font-size: 18px;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-on-bg);
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.7;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.skip-link:focus {
+  top: 0;
+}
