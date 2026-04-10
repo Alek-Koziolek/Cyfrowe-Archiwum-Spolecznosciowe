@@ -16,7 +16,7 @@ const locationText = ref('')
 const tags = ref('')
 const file = ref<File | null>(null)
 const preview = ref<string | null>(null)
-const error = ref('')
+const errors = ref<Record<string, string>>({})
 const loading = ref(false)
 
 const wojewodztwa = ref<HierarchyNode[]>([])
@@ -151,34 +151,43 @@ function onDrop(e: DragEvent) {
   preview.value = URL.createObjectURL(f)
 }
 
-async function handleSubmit() {
-  if (!file.value) {
-    error.value = 'Wybierz plik'
-    return
-  }
+function validate(): boolean {
+  const e: Record<string, string> = {}
+  if (!file.value) e.file = 'Wybierz plik zdjęcia'
+  if (!title.value.trim()) e.title = 'Tytuł jest wymagany'
+  if (!description.value.trim()) e.description = 'Opis jest wymagany'
+  if (!dateTaken.value.trim()) e.dateTaken = 'Data wykonania jest wymagana'
+  if (!selectedWojewodztwoId.value) e.wojewodztwo = 'Województwo jest wymagane'
+  if (selectedWojewodztwoId.value && !miastoInput.value.trim()) e.miasto = 'Miasto jest wymagane'
+  const tagList = tags.value.split(',').map(t => t.trim()).filter(Boolean)
+  if (tagList.length === 0) e.tags = 'Podaj co najmniej jeden tag'
+  errors.value = e
+  return Object.keys(e).length === 0
+}
 
-  error.value = ''
+async function handleSubmit() {
+  if (!validate()) return
+
+  errors.value = {}
   loading.value = true
 
   const nodeId = await resolveHierarchyNodeId()
 
   const formData = new FormData()
-  formData.append('file', file.value)
+  formData.append('file', file.value!)
   formData.append('title', title.value)
-  if (description.value) formData.append('description', description.value)
-  if (dateTaken.value) {
-    formData.append('date_taken', displayToIso(dateTaken.value, datePrecision.value))
-    formData.append('date_precision', datePrecision.value)
-  }
+  formData.append('description', description.value)
+  formData.append('date_taken', displayToIso(dateTaken.value, datePrecision.value))
+  formData.append('date_precision', datePrecision.value)
   if (locationText.value) formData.append('location_text', locationText.value)
   if (nodeId) formData.append('hierarchy_node_id', String(nodeId))
-  if (tags.value) formData.append('tags', tags.value)
+  formData.append('tags', tags.value)
 
   try {
     const photo = await uploadPhoto(formData)
     router.push({ name: 'photo-detail', params: { id: photo.id } })
   } catch (e: any) {
-    error.value = e.response?.data?.detail || 'Błąd przesyłania'
+    errors.value = { submit: e.response?.data?.detail || 'Błąd przesyłania' }
   } finally {
     loading.value = false
   }
@@ -190,11 +199,10 @@ async function handleSubmit() {
     <h1 class="text-2xl font-bold text-[var(--color-on-bg)] mb-6">Dodaj zdjęcie</h1>
 
     <form @submit.prevent="handleSubmit" class="flex flex-col gap-5">
-      <div v-if="error" class="p-3 rounded bg-red-100 text-[var(--color-error)] text-sm" role="alert">
-        {{ error }}
+      <div v-if="errors.submit" class="p-3 rounded bg-red-100 text-[var(--color-error)] text-sm" role="alert">
+        {{ errors.submit }}
       </div>
 
-      <!-- File drop zone -->
       <div
         class="border-2 border-dashed border-[var(--color-border)] rounded-lg p-8 text-center cursor-pointer hover:border-[var(--color-primary)] transition-colors"
         @dragover.prevent @drop="onDrop" @click="($refs.fileInput as HTMLInputElement).click()" role="button"
@@ -206,40 +214,44 @@ async function handleSubmit() {
         <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/tiff" class="hidden"
           @change="onFileChange" />
       </div>
+      <p v-if="errors.file" class="text-[var(--color-error)] text-xs -mt-3">{{ errors.file }}</p>
 
       <div>
         <label for="title" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Tytuł *</label>
-        <input id="title" v-model="title" type="text" required
-          class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]" />
+        <input id="title" v-model="title" type="text"
+          :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.title ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']" />
+        <p v-if="errors.title" class="text-[var(--color-error)] text-xs mt-1">{{ errors.title }}</p>
       </div>
 
       <div>
-        <label for="description" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Opis</label>
+        <label for="description" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Opis *</label>
         <textarea id="description" v-model="description" rows="3"
-          class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]" />
+          :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.description ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']" />
+        <p v-if="errors.description" class="text-[var(--color-error)] text-xs mt-1">{{ errors.description }}</p>
       </div>
 
       <div class="flex flex-col gap-3">
         <p class="block text-sm font-medium text-[var(--color-on-surface)]">Lokalizacja w hierarchii</p>
 
         <div>
-          <label for="wojewodztwo" class="block text-xs text-[var(--color-muted)] mb-0.5">Województwo</label>
+          <label for="wojewodztwo" class="block text-xs text-[var(--color-muted)] mb-0.5">Województwo *</label>
           <select id="wojewodztwo" :value="selectedWojewodztwoId ?? ''"
             @change="onWojewodztwoChange(($event.target as HTMLSelectElement).value)"
-            class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]">
+            :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.wojewodztwo ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']">
             <option value="">— wybierz województwo —</option>
             <option v-for="node in wojewodztwa" :key="node.id" :value="node.id">{{ node.name }}</option>
           </select>
+          <p v-if="errors.wojewodztwo" class="text-[var(--color-error)] text-xs mt-1">{{ errors.wojewodztwo }}</p>
         </div>
 
         <div v-if="selectedWojewodztwoId" class="relative">
-          <label for="miasto" class="block text-xs text-[var(--color-muted)] mb-0.5">Miasto / Gmina</label>
+          <label for="miasto" class="block text-xs text-[var(--color-muted)] mb-0.5">Miasto *</label>
           <input id="miasto" v-model="miastoInput" type="text" autocomplete="off"
             placeholder="Wpisz nazwę lub wybierz z listy…" role="combobox" aria-haspopup="listbox"
             :aria-expanded="showSuggestions && (miastoSuggestions.length > 0 || !!miastoInput.trim())"
             aria-controls="miasto-listbox" aria-autocomplete="list"
             :aria-activedescendant="focusedMiastoIndex >= 0 ? `miasto-option-${focusedMiastoIndex}` : undefined"
-            class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]"
+            :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.miasto ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']"
             @input="onMiastoInput" @focus="onMiastoInput" @blur="onMiastoBlur" @keydown="onMiastoKeydown" />
           <ul v-if="showSuggestions && (miastoSuggestions.length > 0 || miastoInput.trim())" id="miasto-listbox"
             class="absolute z-10 w-full mt-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md max-h-52 overflow-y-auto"
@@ -257,16 +269,18 @@ async function handleSubmit() {
               Dodaj: „{{ miastoInput.trim() }}"
             </li>
           </ul>
+          <p v-if="errors.miasto" class="text-[var(--color-error)] text-xs mt-1">{{ errors.miasto }}</p>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="dateTaken" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Data
-            wykonania</label>
+            wykonania *</label>
           <input id="dateTaken" :value="dateTaken" type="text" :placeholder="datePlaceholder"
-            class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]"
+            :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.dateTaken ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']"
             @input="handleDateInput" />
+          <p v-if="errors.dateTaken" class="text-[var(--color-error)] text-xs mt-1">{{ errors.dateTaken }}</p>
         </div>
         <div>
           <label for="datePrecision" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Dokładność
@@ -288,10 +302,11 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label for="tags" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Tagi (rozdzielone
+        <label for="tags" class="block text-sm font-medium text-[var(--color-on-surface)] mb-1">Tagi * (rozdzielone
           przecinkami)</label>
         <input id="tags" v-model="tags" type="text" placeholder="np. architektura, kościół, rynek"
-          class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-on-bg)]" />
+          :class="['w-full px-3 py-2 rounded-md border bg-[var(--color-bg)] text-[var(--color-on-bg)]', errors.tags ? 'border-[var(--color-error)]' : 'border-[var(--color-border)]']" />
+        <p v-if="errors.tags" class="text-[var(--color-error)] text-xs mt-1">{{ errors.tags }}</p>
       </div>
 
       <button type="submit" :disabled="loading"
